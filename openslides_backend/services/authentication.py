@@ -33,11 +33,12 @@ class AuthenticationHTTPAdapter:
         )
         request_data = json.dumps(headers.to_wsgi_list())
         access_token = None
+        header_dict = {k: v for k, v in headers.items()}
         try:
             response = requests.post(
                 self.get_internal_url("/api/authenticate"),
                 data=request_data,
-                headers=headers,
+                headers=header_dict,
             )
         except requests.exceptions.ConnectionError as e:
             self.logger.debug(

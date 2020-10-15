@@ -55,18 +55,20 @@ class OpenSlidesBackendGunicornApplication(BaseApplication):  # pragma: no cover
     def load(self) -> WSGIApplication:
         # We import this here so Gunicorn can use its reload feature properly.
         from .wsgi import create_wsgi_application
+        from opentelemetry.instrumentation.wsgi import OpenTelemetryMiddleware
 
         # TODO: Fix this typing problem.
         logging_module: LoggingModule = logging  # type: ignore
-
-        return create_wsgi_application(logging_module, self.view_name)
+        return OpenTelemetryMiddleware(create_wsgi_application(logging_module, self.view_name))
 
 
 def start_action_server() -> None:  # pragma: no cover
+    setup_opentelemetry()
     OpenSlidesBackendGunicornApplication(view_name="ActionView").run()
 
 
 def start_presenter_server() -> None:  # pragma: no cover
+    setup_opentelemetry()
     OpenSlidesBackendGunicornApplication(view_name="PresenterView").run()
 
 
@@ -120,6 +122,29 @@ def start_them_all() -> None:  # pragma: no cover
                 sys.exit(1)
         time.sleep(0.1)
 
+def setup_opentelemetry():
+    from opentelemetry import trace
+    from opentelemetry.exporter.otlp.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchExportSpanProcessor, SimpleExportSpanProcessor
+    from opentelemetry.instrumentation.requests import RequestsInstrumentor
+    from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+
+    docker_id = "todo"  # os.environ.get("DOCKER_ID")  # TODO: env service
+    resource = Resource.create({
+        "service.name": "backend",
+        "service.instance.id": docker_id
+    })
+    tracer_provider = TracerProvider(resource=resource)
+    trace.set_tracer_provider(tracer_provider)
+    span_exporter = OTLPSpanExporter(endpoint="otel-collector:55680")
+    #span_exporter = ConsoleSpanExporter()
+    # BatchExportSpanProcessor does not work currently
+    span_processor = SimpleExportSpanProcessor(span_exporter)
+    tracer_provider.add_span_processor(span_processor)
+
+    RequestsInstrumentor().instrument()
 
 def main() -> None:  # pragma: no cover
     component = os.environ.get("OPENSLIDES_BACKEND_COMPONENT", "all")

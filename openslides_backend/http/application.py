@@ -43,9 +43,14 @@ class OpenSlidesBackendWSGIApplication:
         object or a HTTPException (or a subclass of it). Both are WSGI
         applications themselves.
         """
-        if health_route.match(request.environ["RAW_URI"]):
-            return self.health_info(request)
-        return self.default_route(request)
+        from opentelemetry import trace
+        tracer = trace.get_tracer(__name__)
+        with tracer.start_as_current_span("Testtt"):
+            print("HELLO", flush=True)
+
+            if health_route.match(request.environ["RAW_URI"]):
+                return self.health_info(request)
+            return self.default_route(request)
 
     def default_route(self, request: Request) -> Union[Response, HTTPException]:
         """
