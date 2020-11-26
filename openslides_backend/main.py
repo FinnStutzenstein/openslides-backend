@@ -138,7 +138,7 @@ def setup_opentelemetry():
     })
     tracer_provider = TracerProvider(resource=resource)
     trace.set_tracer_provider(tracer_provider)
-    span_exporter = OTLPSpanExporter(endpoint="otel-collector:55680")
+    span_exporter = OTLPSpanExporter(endpoint="otel-collector:55680", insecure=True)
     #span_exporter = ConsoleSpanExporter()
     # BatchExportSpanProcessor does not work currently
     span_processor = SimpleExportSpanProcessor(span_exporter)
